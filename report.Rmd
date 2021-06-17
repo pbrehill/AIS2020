@@ -1,0 +1,164 @@
+---
+title: "ACNC 2020 analysis"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r, include = FALSE}
+# Load packages, filter data to just env
+source('process_data.R')
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(car)
+df <- env_years$df18
+```
+
+
+```{r, include = FALSE}
+env_df <- df %>% filter(main.activity == 'Environmental activities')
+soc_df <- df18 %>% filter(main.activity == 'Social services')
+```
+
+```{r}
+df18 %>%
+  group_by(main.activity) %>%
+  # filter(main.activity %in% unique(df17g$main.activity)) %>%
+  slice_max(order_by = total.revenue, n = 5) %>%
+  summarise(top5_revenue = mean(total.revenue), top5_FTEs = mean(total.full.time.equivalent.staff), n = n()) %>%
+  arrange(desc(top5_revenue)) %>%
+  View()
+```
+
+
+
+Number of charities, number of environmental charities
+
+There were `r nrow(df)` charities reporting in 2018 of which `r nrow(env_df)` were environmental charities.
+
+Revenue for all charities was `r sum(df$total.revenue)` of which `r sum(env_df$total.revenue)` went to environmental organisations.
+
+Donations and bequests revenue for all charities was `r sum(df$donations.and.bequests)` of which `r sum(env_df$donations.and.bequests)` went to environmental organisations.
+
+
+**Revenue breakdown**
+
+```{r}
+env_df %>%
+  select(donations.and.bequests, revenue.from.investments, revenue.from.government, revenue.from.goods.and.services, all.other.revenue) %>%
+  gather(key = 'revenue_source', value = 'amount') %>%
+  group_by(revenue_source) %>%
+  summarise(total = sum(amount)) %>%
+  mutate(prop = prop.table(total),
+         midpoint = cumsum(prop) - prop / 2) %>%
+  ggplot(aes(x = 1, y = prop, fill = revenue_source)) +
+    geom_col(position = 'stack') +
+    geom_text(aes(label = scales::percent(round(prop, 4)), size=5),
+              position = position_stack(vjust = 0.5))
+```
+
+For comparison
+
+```{r}
+df18 %>%
+  select(donations.and.bequests, revenue.from.investments, revenue.from.government, revenue.from.goods.and.services, all.other.revenue) %>%
+  gather(key = 'revenue_source', value = 'amount') %>%
+  group_by(revenue_source) %>%
+  summarise(total = sum(amount)) %>%
+  mutate(prop = prop.table(total),
+         midpoint = cumsum(prop) - prop / 2) %>%
+  ggplot(aes(x = 1, y = prop, fill = revenue_source)) +
+    geom_col(position = 'stack') +
+    geom_text(aes(label = scales::percent(round(prop, 4)), size=5),
+              position = position_stack(vjust = 0.5))
+```
+
+```{r}
+nrow(env_df)
+
+round(sum(env_df$total.revenue) / 1000000)
+
+sum(env_df$revenue.from.government) / sum(env_df$total.revenue)
+
+sum(env_df$revenue.from.government) / sum(env_df$total.revenue)
+```
+
+The total amount of revenue reported by the `r nrow(env_df)` environmental charities in 2018 was `r round(sum(env_df$total.revenue)/1000000)` million. Most of the funding received by environmental charities came from two sources:
+ Government grants (`r round(sum(env_df$revenue.from.government)/sum(env_df$total.revenue) * 100)`% of all revenue); and
+ Donations and bequests (`r round(sum(env_df$donations.and.bequests)/sum(env_df$total.revenue) * 100)`% of all revenue).
+Fewer organisations received government grants
+than donations:
+ `r round(nrow(env_df[env_df$donations.and.bequests > 0,])/nrow(env_df) * 100)`% of organisations received at least one donation.
+ `r round(nrow(env_df[env_df$revenue.from.government > 0,])/nrow(env_df) * 100)`% of organisations got some funding from government
+ 
+
+Most environmental charities (`r nrow(env_df %>% filter(charity.size == 'Small'))`) meet the small category and are at the “low end” of the revenue spectrum. The median small organisation had just $`r env_df %>% filter(charity.size == 'Small') %>% select(total.revenue) %>% pull() %>% median(na.rm = TRUE)` in total revenue for the year. These organisations are distinctive not just in the amount of revenue they receive, but the way they operate. Most are volunteer run organisations; 
+`r round(nrow(env_df[env_df$total.full.time.equivalent.staff == 0,])/nrow(env_df) * 100)` % of small organisations had no paid staff.
+
+There are `r nrow(env_df %>% filter(charity.size == 'Large'))` large organisations. Together they received `r (env_df %>% filter(charity.size == 'Large') %>% select(total.revenue) %>% sum()) / (env_df %>% select(total.revenue) %>% sum())`% of all environmental charity revenue. The 10 largest organisations account for `r ((env_df %>% arrange(desc(total.revenue)) %>% head(10) %>% select(total.revenue) %>% sum()) / (env_df %>% select(total.revenue) %>% sum()) %>% round()) * 100`% of all revenue. The 30 largest organisations receive more funding than the remaining `r nrow(env_df)`.
+
+```{r}
+env_df %>%
+  select(charity.size) %>%
+  mutate(charity_size = car::recode(charity.size, "'Small' = 'Small (under $250,000)'; 'Medium' = 'Medium ($250,000 to 1 million)'; 'Large' = 'Large (over $1 million)'")) %>%
+  group_by(charity_size) %>%
+  count() %>%
+  ggplot(aes(x = 1, y = n, fill = charity_size)) +
+    geom_col(position = 'stack') +
+    geom_text(aes(label = n, size=5),
+              position = position_stack(vjust = 0.5))
+```
+
+```{r}
+env_df %>%
+  select(charity.size, total.revenue) %>%
+  mutate(charity_size = car::recode(charity.size, "'Small' = 'Small (under $250,000)'; 'Medium' = 'Medium ($250,000 to 1 million)'; 'Large' = 'Large (over $1 million)'")) %>%
+  group_by(charity_size) %>%
+  summarise(total = sum(total.revenue)) %>%
+  mutate(prop = prop.table(total)) %>%
+  ggplot(aes(x = 1, y = prop, fill = charity_size)) +
+    geom_col(position = 'stack') +
+    geom_text(aes(label = scales::percent(round(prop, 4)), size=5),
+              position = position_stack(vjust = 0.5))
+```
+
+
+## Giving ##
+
+```{r}
+env_year_sums$year <- c(2014, 2015, 2016, 2017, 2018)
+
+env_year_sums[c('year', 'donations.and.bequests')] %>%
+  ggplot(aes(x = year, y = donations.and.bequests, label = donations.and.bequests)) +
+    geom_col() +
+    geom_text(vjust = -1)
+```
+
+We have seen a small but steady increase in giving to environmental organisations from 170M in 2014 to 240M in 2018. This is in line with increasing total revenue for environmental charities. In fact as a portion of total revenue donations and bequests have remained stable at around 30%.
+
+```{r}
+env_year_sums$year <- c(2014, 2015, 2016, 2017, 2018)
+
+env_year_sums[c('year', 'donations.and.bequests', 'total.revenue')] %>%
+  mutate(perc_donations = (donations.and.bequests / total.revenue) * 100) %>%
+  ggplot(aes(x = year, y = perc_donations)) +
+    geom_line() +
+    expand_limits(y = 0)
+```
+
+# Most normal charities
+
+```{r}
+env_df_sorted <- env_df %>% arrange(desc(donations.and.bequests))
+env_df_sorted[474:483,] %>% select(charity.name, donations.and.bequests)
+```
+
+```{r}
+df18 %>%
+  mutate(decile_rank = ntile(donations.and.bequests,10)) %>%
+  group_by(decile_rank) %>%
+  summarise(decile_sum = sum(donations.and.bequests)) %>%
+  mutate(decile_perc = decile_sum / sum(.$decile_sum))
+```
+
