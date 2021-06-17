@@ -71,6 +71,12 @@ join_year_dfs <- function (x, y) {
 
 # Load from online
 
+# 2019
+df19 <- 'https://data.gov.au/data/dataset/34b35c52-8af0-4cc1-aa0b-2278f6416d09/resource/1da3681e-6149-45db-8458-9173947bd5bc/download/datadotgov_ais19.xlsx' %>%
+  download_sheet()
+print('df19 complete')
+
+
 # 2018
 df18 <- 'https://data.gov.au/data/dataset/cfc1a18e-f4e0-4ed8-9a19-36b59b7a3d5b/resource/9312452f-fced-476e-a6ec-2b2327796a34/download/datadotgov_ais18.xlsx' %>%
   download_sheet()
@@ -146,6 +152,7 @@ df16 <- df16 %>% rename(revenue.from.government = government.grants)
 # TODO: Deal with volunteers and staff variable names
 df17 <- df17 %>% rename(staff.volunteers = `staff.-.volunteers`)
 df18 <- df18 %>% rename(staff.volunteers = `staff.-.volunteers`)
+df19 <- df19 %>% rename(staff.volunteers = `staff.-.volunteers`)
 
 
 # Turn them into a list
@@ -153,7 +160,9 @@ years <- list('2014' = df14,
               '2015' = df15,
               '2016' = df16,
               '2017' = df17,
-              '2018' = df18)
+              '2018' = df18,
+              '2019' = df19
+              )
 
 # Bind cols
 all_years_data <- rbindlist(years, idcol = TRUE, fill = TRUE) %>%
