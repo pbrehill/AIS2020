@@ -7,22 +7,22 @@ output:
 
 ```{r, include = FALSE}
 # Load packages, filter data to just env
-source('process_data.R')
+# source('process_data.R')
 library(dplyr)
 library(tidyr)
 library(purrr)
 library(car)
-df <- env_years$df18
+df <- years[['2019']] %>% filter(main.activity == 'Environmental activities')
 ```
 
 
 ```{r, include = FALSE}
-env_df <- df %>% filter(main.activity == 'Environmental activities')
-soc_df <- df18 %>% filter(main.activity == 'Social services')
+env_df <- df
+soc_df <- df19 %>% filter(main.activity == 'Social services')
 ```
 
 ```{r}
-df18 %>%
+df19 %>%
   group_by(main.activity) %>%
   # filter(main.activity %in% unique(df17g$main.activity)) %>%
   slice_max(order_by = total.revenue, n = 5) %>%
@@ -61,7 +61,7 @@ env_df %>%
 For comparison
 
 ```{r}
-df18 %>%
+df19 %>%
   select(donations.and.bequests, revenue.from.investments, revenue.from.government, revenue.from.goods.and.services, all.other.revenue) %>%
   gather(key = 'revenue_source', value = 'amount') %>%
   group_by(revenue_source) %>%
@@ -127,21 +127,23 @@ env_df %>%
 ## Giving ##
 
 ```{r}
-env_year_sums$year <- c(2014, 2015, 2016, 2017, 2018)
+# env_year_sums$year <- c(2014, 2015, 2016, 2017, 2018)
 
-env_year_sums[c('year', 'donations.and.bequests')] %>%
-  ggplot(aes(x = year, y = donations.and.bequests, label = donations.and.bequests)) +
-    geom_col() +
-    geom_text(vjust = -1)
+all_years_data %>%
+  filter(main.activity == 'Environmental activities') %>%
+  group_by(year) %>%
+  summarise(sum(donations.and.bequests, na.rm = T))
 ```
 
-We have seen a small but steady increase in giving to environmental organisations from 170M in 2014 to 240M in 2018. This is in line with increasing total revenue for environmental charities. In fact as a portion of total revenue donations and bequests have remained stable at around 30%.
+We have seen a small but steady increase in giving to environmental organisations from 170M in 2014 to 266M in 2018. This is in line with increasing total revenue for environmental charities. In fact as a portion of total revenue donations and bequests have remained stable at around 30%.
 
 ```{r}
-env_year_sums$year <- c(2014, 2015, 2016, 2017, 2018)
-
-env_year_sums[c('year', 'donations.and.bequests', 'total.revenue')] %>%
+all_years_data %>%
+  filter(main.activity == 'Environmental activities') %>%
   mutate(perc_donations = (donations.and.bequests / total.revenue) * 100) %>%
+  group_by(year) %>%
+  summarise(perc_donations = mean(perc_donations, na.rm = T)) %>%
+  filter(!is.infinite(perc_donations)) %>%
   ggplot(aes(x = year, y = perc_donations)) +
     geom_line() +
     expand_limits(y = 0)
@@ -155,7 +157,7 @@ env_df_sorted[474:483,] %>% select(charity.name, donations.and.bequests)
 ```
 
 ```{r}
-df18 %>%
+df19 %>%
   mutate(decile_rank = ntile(donations.and.bequests,10)) %>%
   group_by(decile_rank) %>%
   summarise(decile_sum = sum(donations.and.bequests)) %>%
