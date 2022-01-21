@@ -3,32 +3,34 @@ title: "ACNC 2020 analysis"
 output:
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 
 ```{r, include = FALSE}
 # Load packages, filter data to just env
-# source('process_data.R')
+source('process_data.R')
 library(dplyr)
 library(tidyr)
 library(purrr)
 library(car)
-df <- years[['2019']] %>% filter(main.activity == 'Environmental activities')
+df <- years[['2019']] 
 ```
 
 
 ```{r, include = FALSE}
-env_df <- df
+env_df <- df %>% filter(main.activity == 'Environmental activities')
 soc_df <- df19 %>% filter(main.activity == 'Social services')
 ```
 
 ```{r}
 df19 %>%
   group_by(main.activity) %>%
-  # filter(main.activity %in% unique(df17g$main.activity)) %>%
+  filter(main.activity %in% unique(years[['2017']]$main.activity)) %>%
   slice_max(order_by = total.revenue, n = 5) %>%
   summarise(top5_revenue = mean(total.revenue), top5_FTEs = mean(total.full.time.equivalent.staff), n = n()) %>%
   arrange(desc(top5_revenue)) %>%
-  View()
+  # View()
+  write.csv('top5sectors.csv')
 ```
 
 
@@ -75,6 +77,16 @@ df19 %>%
 ```
 
 ```{r}
+sum(env_df$donations.and.bequests, na.rm = TRUE) / sum(df$donations.and.bequests, na.rm = TRUE)
+
+sum(env_df$total.revenue, na.rm = TRUE) / sum(df$total.revenue, na.rm = TRUE)
+
+sum(env_df$total.revenue, na.rm = TRUE)
+```
+
+
+
+```{r}
 nrow(env_df)
 
 round(sum(env_df$total.revenue) / 1000000)
@@ -97,6 +109,23 @@ Most environmental charities (`r nrow(env_df %>% filter(charity.size == 'Small')
 `r round(nrow(env_df[env_df$total.full.time.equivalent.staff == 0,])/nrow(env_df) * 100)` % of small organisations had no paid staff.
 
 There are `r nrow(env_df %>% filter(charity.size == 'Large'))` large organisations. Together they received `r (env_df %>% filter(charity.size == 'Large') %>% select(total.revenue) %>% sum()) / (env_df %>% select(total.revenue) %>% sum())`% of all environmental charity revenue. The 10 largest organisations account for `r ((env_df %>% arrange(desc(total.revenue)) %>% head(10) %>% select(total.revenue) %>% sum()) / (env_df %>% select(total.revenue) %>% sum()) %>% round()) * 100`% of all revenue. The 30 largest organisations receive more funding than the remaining `r nrow(env_df)`.
+
+```{r}
+# Percent covered
+
+env_df %>%
+  select(donations.and.bequests) %>%
+  arrange(desc(donations.and.bequests)) %>%
+  mutate(cumulative = cumsum(donations.and.bequests),
+         cumperc = cumulative / sum(donations.and.bequests))
+
+env_df %>%
+  select(total.revenue) %>%
+  arrange(desc(total.revenue)) %>%
+  mutate(cumulative = cumsum(total.revenue),
+         cumperc = cumulative / sum(total.revenue))
+```
+
 
 ```{r}
 env_df %>%
@@ -129,11 +158,24 @@ env_df %>%
 ```{r}
 # env_year_sums$year <- c(2014, 2015, 2016, 2017, 2018)
 
-all_years_data %>%
+years_figs <- all_years_data %>%
   filter(main.activity == 'Environmental activities') %>%
   group_by(year) %>%
-  summarise(sum(donations.and.bequests, na.rm = T))
+  summarise(total_donations = sum(donations.and.bequests, na.rm = T))
+  
+
+years_figs
 ```
+
+```{r}
+years_figs %>%
+  ggplot(aes(x = year, y = total_donations)) +
+    geom_col() +
+    geom_smooth() +
+    geom_text(aes(label=total_donations), position=position_dodge(width=0.9), vjust=-0.25)
+```
+
+
 
 We have seen a small but steady increase in giving to environmental organisations from 170M in 2014 to 266M in 2018. This is in line with increasing total revenue for environmental charities. In fact as a portion of total revenue donations and bequests have remained stable at around 30%.
 
@@ -147,6 +189,12 @@ all_years_data %>%
   ggplot(aes(x = year, y = perc_donations)) +
     geom_line() +
     expand_limits(y = 0)
+```
+# Top charities
+
+```{r}
+env_df_sorted <- env_df %>% arrange(desc(donations.and.bequests))
+env_df_sorted[1:10,] %>% select(charity.name, donations.and.bequests)
 ```
 
 # Most normal charities
@@ -164,3 +212,27 @@ df19 %>%
   mutate(decile_perc = decile_sum / sum(.$decile_sum))
 ```
 
+What are the big trends? Climate? Disruption?
+
+```{r}
+# Top 20 orgs
+
+all_years_data %>%
+  filter(main.activity == 'Environmental activities', year %in% c('2016', '2017', '2018', '2019')) %>%
+  group_by(abn) %>%
+  summarise(total_donations = sum(donations.and.bequests)) %>%
+  left_join(env_df %>%
+              select(charity.name, abn, donations.and.bequests)
+              ) %>%
+  arrange(desc(total_donations)) #%>%
+  # write_csv('topx.csv')
+```
+
+```{r}
+
+df %>%
+  group_by(main.activity) %>%
+  summarise(total_donations = sum(donations.and.bequests)) %>%
+  mutate(perc_donations = total_donations / sum(.$total_donations))
+
+```
